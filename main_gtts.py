@@ -1,9 +1,11 @@
-from epub import parse_html_to_dict, extract_chapters_from_epub, clean_string
-from audio import generate_audio_gtts
-from moviepy.editor import TextClip, concatenate_videoclips, AudioFileClip, ImageClip, CompositeVideoClip
 import os
+
+from moviepy.editor import (AudioFileClip, CompositeVideoClip, ImageClip,
+                            TextClip, concatenate_videoclips)
 from tqdm import tqdm
-import re
+
+from audio import generate_audio_gtts
+from epub import clean_string, extract_chapters_from_epub
 
 audio_folder = "audios"
 
@@ -21,8 +23,6 @@ def create_audio_and_text_clips(name, chapter_index, sentences, background_image
     # Create an ImageClip for the background
     background_image = ImageClip(background_image_path).resize(height=720)
 
-    print(sentences)
-
     for idx in tqdm(range(len(sentences))):
         sentence = clean_string(sentences[idx])
         # Generate audio for the sentence
@@ -37,7 +37,7 @@ def create_audio_and_text_clips(name, chapter_index, sentences, background_image
 
         # Create a TextClip with the same duration as the audio
         fontsize = 50 if idx == 0 else 30
-        text_clip = TextClip(sentence, fontsize=fontsize, color='white', size=(1220, 720), method='caption')
+        text_clip = TextClip(sentence, fontsize=fontsize, color='#FFFFCC', size=(1220, 720), method='caption')
         text_clip = text_clip.set_duration(audio_clip.duration)
 
         # Position text in the center over the background
@@ -51,10 +51,10 @@ def create_audio_and_text_clips(name, chapter_index, sentences, background_image
 
     return clips
 
-def create_intro_clip(book_data, background_image_path, tome_index=0):
+def create_intro_clip(book_data, background_image_path):
     """Creates an introductory clip with the book title, author, and year."""
-    intro_text = "{}\n\n{}\n\n{}".format(book_data["title"], book_data["author"], "Volume {}".format(tome_index))
-    intro_audio_text = "{} by {}, Volume {}".format(book_data["title"], book_data["author"], tome_index)
+    intro_text = "{}\n\n{}\n\n{}".format(book_data["title"], book_data["author"], book_data["year"])
+    intro_audio_text = "{} by {}, {}".format(book_data["title"], book_data["author"], book_data["year"])
 
     # Generate audio for the introduction
     audio_file =  "{}_intro.mp3".format(book_data["id"])
@@ -65,7 +65,7 @@ def create_intro_clip(book_data, background_image_path, tome_index=0):
     intro_audio_clip = AudioFileClip(sped_up_audio_file)
 
     # Create a TextClip for the introduction
-    text_clip = TextClip(intro_text, fontsize=60, color='white', size=(1220, 720), method='caption')
+    text_clip = TextClip(intro_text, fontsize=60, color='#FFFFCC', size=(1220, 720), method='caption')
     text_clip = text_clip.set_duration(intro_audio_clip.duration)
 
     # Resize the background image while maintaining the aspect ratio
@@ -81,10 +81,10 @@ def create_intro_clip(book_data, background_image_path, tome_index=0):
 
     return intro_clip
 
-def create_video_from_text_clips(clips, output_path="output_video.mp4", fps=6, threads=4):
+def create_video_from_text_clips(clips, output_path="output_video.mp4", fps=6, threads=6):
     """Concatenates TextClips and writes the final video to a file."""
     final_clip = concatenate_videoclips(clips)
-    final_clip.write_videofile(output_path, fps=fps, threads=threads)
+    final_clip.write_videofile(output_path, fps=fps, threads=threads, codec="libx264", audio_codec="aac")
 
 # Main execution
 if __name__ == "__main__":
@@ -107,54 +107,27 @@ if __name__ == "__main__":
     # Create the audio folder if it doesn't exist
     os.makedirs(audio_folder, exist_ok=True)
 
-    # Extract chapters from the EPUB
-    #book = parse_html_to_dict("books/{}.epub".format(data["id"]))
 
     chapters = extract_chapters_from_epub("books/{}.epub".format(data["id"]))
     # print("Chapter: {} {}".format(len(book), list(book.keys())))
 
-    # chapter_index = 1
-    # for tome_index, (tome, chapters) in enumerate(book.items()):
-    #     all_clips = []
-    #     intro_clip = create_intro_clip(data, background_image_path, tome_index+1)
-    #     all_clips.append(intro_clip)
-    #     for chapter_title, sentences in chapters.items():
-    #         print(f"Processing tome {tome_index+1} {tome} - chapter {chapter_index}: {chapter_title} {len(sentences)}")
-
-    #         ss = [chapter_title] + sentences[:3]
-    #         text_clips = create_audio_and_text_clips(data["id"], chapter_index, ss, background_image_path)
-    #         print("Text clips: {}".format(len(text_clips)))
-    #         all_clips.extend(text_clips)
-    #         chapter_index+=1
-    #         if chapter_index == 3:
-    #             break
-    #     # Create and save the final video for the chapter
-    #     create_video_from_text_clips(all_clips, "videos/{}_chapter_{}.mp4".format(data["id"], tome_index+1))  # Output name includes chapter 1
-    #     break
-
-
-
     for chapter_index, (chapter_title, sentences) in enumerate(chapters.items()):
-        if chapter_index+1 != 17:
-            continue
+        # if chapter_index+1 not in (16, 17, 18):
+        #     continue
 
-        try:
-            all_clips = []
-            print(f"Processing chapter {chapter_index+1}: {chapter_title}")
-            # Create the intro clip
-            if chapter_index == 0:
-                intro_clip = create_intro_clip(data, background_image_path)
-                all_clips.append(intro_clip)
 
-            print("Sentences: {}".format(len(sentences)))
-            sentences = [chapter_title] + sentences[99:]
-            text_clips = create_audio_and_text_clips(data["id"], chapter_index+1, sentences, background_image_path)
-            print("Text clips: {}".format(len(text_clips)))
-            all_clips.extend(text_clips)
+        all_clips = []
+        print(f"Processing chapter {chapter_index+1}: {chapter_title}")
+        # Create the intro clip
+        if chapter_index == 0:
+            intro_clip = create_intro_clip(data, background_image_path)
+            all_clips.append(intro_clip)
 
-            # Create and save the final video for the chapter
-            create_video_from_text_clips(all_clips, "videos/{}_chapter_{}.mp4".format(data["id"], chapter_index+1))  # Output name includes chapter 1
-        except Exception as err:
-            print("chapter {} failed".format(chapter_index+1))
-            print(err)
-        break
+        print("Sentences: {}".format(len(sentences)))
+        sentences = [chapter_title] + sentences
+        text_clips = create_audio_and_text_clips(data["id"], chapter_index+1, sentences, background_image_path)
+        print("Text clips: {}".format(len(text_clips)))
+        all_clips.extend(text_clips)
+
+        # Create and save the final video for the chapter
+        create_video_from_text_clips(all_clips, "videos/{}_chapter_{}.mp4".format(data["id"], chapter_index+1))  # Output name includes chapter 1
