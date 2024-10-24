@@ -47,5 +47,5 @@ def extract_chapters_from_epub(epub_path):
 
                     sentences = split_text_into_sentences(' '.join(chapter_content).strip())
                     # Store the chapter title and content
-                    chapters[clean_string(chapter_title)] = sentences
+                    chapters[clean_string(chapter_title.capitalize())] = sentences
     return chapters

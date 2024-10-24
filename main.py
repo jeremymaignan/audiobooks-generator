@@ -8,6 +8,10 @@ from audio import generate_audio_gtts
 from epub import clean_string, extract_chapters_from_epub
 
 audio_folder = "audios"
+text_color = '#FFFFFF'
+
+def format_chapter_title(title, chapter_number):
+    return " ".join(["Chapter", str(chapter_number)] + title.split(" ")[2:])
 
 def get_background_picture(name):
     for fmt in ("jpg", "png"):
@@ -37,14 +41,24 @@ def create_audio_and_text_clips(name, chapter_index, sentences, background_image
 
         # Create a TextClip with the same duration as the audio
         fontsize = 50 if idx == 0 else 30
-        text_clip = TextClip(sentence, fontsize=fontsize, color='#FFFFCC', size=(1220, 720), method='caption')
-        text_clip = text_clip.set_duration(audio_clip.duration)
+        text_clip = TextClip(
+            sentence,
+            fontsize=fontsize,
+            color=text_color,
+            size=(1220, 720),
+            method='caption'
+            )
+        text_clip = text_clip.set_duration(audio_clip.duration + (0.5 if idx == 0 else 0))
 
         # Position text in the center over the background
         text_clip = text_clip.set_position('center')
 
         # Create a composite video clip with the background and text overlay
-        video_clip = CompositeVideoClip([background_image.set_duration(audio_clip.duration), text_clip.set_duration(audio_clip.duration)], size=(1280, 720))
+        video_clip = CompositeVideoClip([background_image.set_duration(
+            audio_clip.duration + (0.5 if idx == 0 else 0)),
+            text_clip.set_duration(audio_clip.duration + (0.5 if idx == 0 else 0))],
+            size=(1280, 720)
+        )
         video_clip = video_clip.set_audio(audio_clip)
 
         clips.append(video_clip)
@@ -65,18 +79,22 @@ def create_intro_clip(book_data, background_image_path):
     intro_audio_clip = AudioFileClip(sped_up_audio_file)
 
     # Create a TextClip for the introduction
-    text_clip = TextClip(intro_text, fontsize=60, color='#FFFFCC', size=(1220, 720), method='caption')
-    text_clip = text_clip.set_duration(intro_audio_clip.duration)
+    text_clip = TextClip(intro_text, fontsize=60, color=text_color, size=(1220, 720), method='caption')
+    text_clip = text_clip.set_duration(intro_audio_clip.duration + 1)
 
     # Resize the background image while maintaining the aspect ratio
     background_image = ImageClip(background_image_path).resize(height=720)
-    background_image = background_image.set_duration(intro_audio_clip.duration)
+    background_image = background_image.set_duration(intro_audio_clip.duration+ 1 )
 
     # Position text in the center over the background
     text_clip = text_clip.set_position('center')
 
     # Create a composite video clip with the background and text overlay
-    intro_clip = CompositeVideoClip([background_image.set_duration(intro_audio_clip.duration+1), text_clip.set_duration(intro_audio_clip.duration+1)], size=(1280, 720))
+    intro_clip = CompositeVideoClip([background_image.set_duration(
+        intro_audio_clip.duration+1),
+        text_clip.set_duration(intro_audio_clip.duration+1)],
+        size=(1280, 720)
+    )
     intro_clip = intro_clip.set_audio(intro_audio_clip)
 
     return intro_clip
@@ -96,14 +114,15 @@ if __name__ == "__main__":
     }
 
     data = {
-        "id": 'up_from_slavery',
-        "title": 'Up from Slavery',
-        "author": " Booker T. Washington",
-        "year": "1901",
+        "id": 'the_picture_of_dorian_gray',
+        "title": 'The Picture of Dorian Gray',
+        "author": "Oscar Wilde",
+        "year": "1890",
     }
 
-    background_image_path = get_background_picture(data["id"])
 
+    background_image_path = get_background_picture(data["id"])
+ 
     # Create the audio folder if it doesn't exist
     os.makedirs(audio_folder, exist_ok=True)
 
@@ -112,8 +131,10 @@ if __name__ == "__main__":
     # print("Chapter: {} {}".format(len(book), list(book.keys())))
 
     for chapter_index, (chapter_title, sentences) in enumerate(chapters.items()):
-        # if chapter_index+1 not in (16, 17, 18):
-        #     continue
+        print(chapter_index+1, chapter_title, format_chapter_title(chapter_title, chapter_index+1), len(sentences))
+        #continue
+        if chapter_index+1 not in (19,20):
+            continue
 
 
         all_clips = []
@@ -124,10 +145,11 @@ if __name__ == "__main__":
             all_clips.append(intro_clip)
 
         print("Sentences: {}".format(len(sentences)))
-        sentences = [chapter_title] + sentences
+        sentences = [format_chapter_title(chapter_title, chapter_index+1)] + sentences
         text_clips = create_audio_and_text_clips(data["id"], chapter_index+1, sentences, background_image_path)
         print("Text clips: {}".format(len(text_clips)))
         all_clips.extend(text_clips)
 
         # Create and save the final video for the chapter
         create_video_from_text_clips(all_clips, "videos/{}_chapter_{}.mp4".format(data["id"], chapter_index+1))  # Output name includes chapter 1
+
